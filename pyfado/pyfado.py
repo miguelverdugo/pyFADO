@@ -7,6 +7,7 @@ import astropy.wcs as fitswcs
 from box import Box
 from specutils import Spectrum1D
 import astropy.units as u
+from astropy.modeling import models
 
 class FadoLoad:
     """
@@ -104,6 +105,7 @@ class FadoOneD:
         self.max_rows = self.data.shape[0] + 1 # because python
 
 
+
     @property
     def wcs(self):
         wcs = fitswcs.WCS(header={'CDELT1': self.header["CDELT1"],
@@ -161,19 +163,116 @@ class FadoOneD:
         else:
             scale = self.fado_load.scale
 
-        print(row)
         flux_unit = u.Unit("erg / (s cm**2 Angstrom)")
         flux = self.data[row] * scale * flux_unit
         sp = Spectrum1D(flux=flux, wcs=self.wcs)
         return sp
 
 
-
 class FadoEL:
     """
-    Class to manage the results in the 1D files
+        Class to manage the results in the 1D files
     """
-    pass
+
+    def __init__(self, fado_load=FadoLoad):
+        self.fado_load = fado_load
+        self.header = fado_load.EL.header
+        self.data = fado_load.EL.data
+        self.names = self.line_dicts["names"]
+        self.waves = self.line_dicts["waves"]
+        self.info = self.line_dicts["info"]
+
+    @property
+    def line_dicts(self):
+        """ update the attributes of the lines fitted in the spectra
+        self.line_names is a list with the names
+        self.lines_waves = a dictionary with the rest-frame wavelengths
+        self.line_info  = a dictionary with the pointers to the results
+        """
+        keys = list(self.header.keys())
+        el_keys = [k for k in keys if "EL___" in k]
+        el_names = []
+        el_waves = {}
+        el_info = {}
+        for k in el_keys:
+            [name, wave, rows] = self.header[k].split()
+            if "[" in name:
+                name = name + wave.split(".")[0]
+            el_names.append(name)
+            el_waves.update({name: float(wave)})
+            el_info.update({name: rows})
+
+        return {'names': el_names, 'waves':el_waves, "info": el_info}
+
+    def results(self, line_name):
+        """
+        returns a dictionary with the results of the fit for a emission line
+        see self.names for names
+        """
+
+        rows = self.info
+        window = rows[line_name].split('--')
+        xmin = int(window[0])-1
+        xmax = int(window[1])-1
+        values = self.data[:, xmin:xmax][0]
+        results = {'lambda': values[0],
+                   'amplitude': values[1],
+                   'sigma': values[2],
+                   'vel': values[3],
+                   'shift': values[4],
+                   'flux': values[5],
+                   'ew': values[6]}
+
+        return results
+
+    def errors(self, line_name):
+        """
+        returns a dictionary with the results of the fit for a emission line
+        see ELnames for names
+        """
+        rows = self.info
+        window = rows[line_name].split('--')
+        xmin = int(window[0]) - 1
+        xmax = int(window[1]) - 1
+        values = self.data[:, xmin:xmax][1]
+        errors = {'lambda': values[0],
+                  'amplitude': values[1],
+                  'sigma': values[2],
+                  'vel': values[3],
+                  'shift': values[4],
+                  'flux': values[5],
+                  'ew': values[6]}
+
+        return errors
+
+    def line_spectra(self, line_name):
+        """
+        Create a specutils.Spectrum1D for the line
+        """
+        results = self.results(line_name)
+        center = self.waves[line_name]
+        lambda_r = results["lambda"]
+        vel = results["vel"]
+        mu = (vel / c.to('km/s').value) * lambda_r + lambda_r
+        sigma = results["sigma"]
+        amplitude = results["amplitude"]
+
+        flux_unit = u.Unit("erg / (s cm**2 Angstrom)")
+
+        spectrum = FadoOneD(self.fado_load)
+        wcs = spectrum.wcs
+        scale = self.fado_load.scale
+
+        sp = Spectrum1D(flux=np.zeros(spectrum.data.shape[1]) * flux_unit,
+                        wcs=wcs)
+
+        model = models.Gaussian1D(amplitude=amplitude * scale * flux_unit,
+                                  mean=mu * u.Angstrom,
+                                  stddev=sigma * u.Angstrom)
+        sp = sp + Spectrum1D(spectral_axis=sp.spectral_axis,
+                             flux=model(sp.wavelength))
+        return sp
+
 
 
 
