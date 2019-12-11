@@ -3,7 +3,10 @@ from astropy.io import fits
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from astropy.constants import c
-
+import astropy.wcs as fitswcs
+from box import Box
+from specutils import Spectrum1D
+import astropy.units as u
 
 class FadoLoad:
     """
@@ -21,27 +24,23 @@ class FadoLoad:
 
     @property
     def EL(self):
-        with fits.open(self.EL_file) as el_f:
-            hdu = el_f
-        return hdu[0]
+        with fits.open(self.EL_file, lazy_load_hdus=False) as hdu:
+            return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def ST(self):
-        with fits.open(self.ST_file) as st_f:
-            hdu = st_f
-        return hdu[0]
+        with fits.open(self.ST_file, lazy_load_hdus=False) as hdu:
+            return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def ONED(self):
-        with fits.open(self.ONED_file) as oned_f:
-            hdu = oned_f
-        return hdu[0]
+        with fits.open(self.ONED_file, lazy_load_hdus=False, memmap=True) as hdu:
+            return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def DE(self):
-        with fits.open(self.DE_file) as de_f:
-            hdu = de_f
-        return hdu[0]
+        with fits.open(self.DE_file, lazy_load_hdus=False) as hdu:
+            return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def redshift(self):
@@ -51,7 +50,8 @@ class FadoLoad:
             print(e)
             print("Redshift key not found in", self.ONED_file)
             raise
-        return z
+        else:
+            return z
 
     @property
     def fado_ver(self):
@@ -61,7 +61,8 @@ class FadoLoad:
             print(e)
             print("version key not found in", self.ONED_file)
             raise
-        return ver
+        else:
+            return ver
 
     @property
     def ext_law(self):
@@ -71,17 +72,100 @@ class FadoLoad:
             print(e)
             print("version key not found in", self.ONED_file)
             raise
-        return law
+        else:
+            return law
 
+    @property
+    def scale(self):
+        """
+
+        Returns
+        -------
+        the scale to which the spectra must be multiplied to have correct flux levels
+        """
+        try:
+            norm = self.ONED.header["GALSNORM"]
+            fluxunit = 10**self.ONED.header["FLUXUNIT"]
+        except KeyError as e:
+            print(e)
+            print("keys not found in", self.ONED_file)
+            raise
+        else:
+            return norm*fluxunit
 
 class FadoOneD:
     """
-    Class to manage the results in the Emission Line
+    Class to manage the results in the ONED File
     """
     def __init__(self, fado_load=FadoLoad):
         self.fado_load = fado_load
         self.header = fado_load.ONED.header
         self.data = fado_load.ONED.data
+        self.max_rows = self.data.shape[0] + 1 # because python
+
+
+    @property
+    def wcs(self):
+        wcs = fitswcs.WCS(header={'CDELT1': self.header["CDELT1"],
+                        'CRVAL1': self.header["CRVAL1"],
+                        'CUNIT1': 'Angstrom',
+                        'CTYPE1': 'WAVE',
+                        'CRPIX1': self.header["CRPIX1"]})
+        return wcs
+
+    def spectrum(self, row=1, row_name=None, scale=True):
+        """
+        Creates a specutils.Spectrum1D from FADO ONED files.
+        the spectrum can be specified as a row or as a name.
+        Allowed names are the following
+
+        1: 'Observed'         spectrum de-redshifted and rebinned'
+        2: 'Error'
+        3: 'Mask'
+        4: 'Best fit'
+        5: 'Average'            of individual solutions
+        6: 'Median'
+        7: 'Stdev'
+        8: 'Stellar'            using best fit'
+        9: 'Nebular'            using best fit'
+        10: 'AGN'               using best fit'
+        11: 'M/L'
+        12: 'LSF'  Line spread function
+
+        The best-fits for individual solution can only be specified as a number 13-XX
+        see self.max_rows
+
+        Parameters
+        ----------
+        row: int, the row where the spectra is extracted, default=1 (0 in python notation)
+        row_name: str, name of the row (optional)
+        scale = bool, whether to scale the spectra or not, default True
+
+        Returns
+        -------
+        a specutils.Spectrum1D object
+        """
+        row_names = {'observed': 1,  'error': 2,  'mask': 3,
+                     'best fit': 4, 'average': 5,  'median': 6,
+                     'stdev': 7,  'stellar': 8,  'nebular': 9,
+                     'm/l': 10,   "lsf": 12}
+        try:
+            row = row_names[row_name.lower()]
+        except (KeyError, AttributeError) as e:
+            print("name not found", e)
+
+        row = row - 1
+
+        if scale is False:
+            scale = 1
+        else:
+            scale = self.fado_load.scale
+
+        print(row)
+        flux_unit = u.Unit("erg / (s cm**2 Angstrom)")
+        flux = self.data[row] * scale * flux_unit
+        sp = Spectrum1D(flux=flux, wcs=self.wcs)
+        return sp
 
 
 
