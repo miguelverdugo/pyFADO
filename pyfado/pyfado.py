@@ -6,59 +6,107 @@ from astropy.constants import c
 
 
 class FadoLoad:
-	"""
-	This class is meant to load the necessary files and keep them in memory
-	to be used in subsequent classes.
+    """
+    This class is meant to load the necessary files and keep them in memory
+    to be used in subsequent classes.
 
-	It should also read some important information
-	"""
-	def __init__(self, EL_file, ST_file, ONED_file, DE_file):
+    It should also read some important information
+    """
+    def __init__(self, EL_file, ST_file, ONED_file, DE_file):
 
         self.EL_file = EL_file
         self.ST_file = ST_file
         self.ONED_file = ONED_file
         self.DE_file = DE_file
 
-		with fits.open(self.EL_file) as el_f:
-			self.hdu_EL = el_f
-		with fits.open(self.ST_file) as st_f:
-			self.hdu_ST = st_f
-		with fits.open(self.ONED_file) as oned_f:
-			self.hdu_ONED = oned_f
-		with fits.open(self.DE_file) as de_f:
-			self.hdu_DE = de_f
+    @property
+    def EL(self):
+        with fits.open(self.EL_file) as el_f:
+            hdu = el_f
+        return hdu[0]
+
+    @property
+    def ST(self):
+        with fits.open(self.ST_file) as st_f:
+            hdu = st_f
+        return hdu[0]
+
+    @property
+    def ONED(self):
+        with fits.open(self.ONED_file) as oned_f:
+            hdu = oned_f
+        return hdu[0]
+
+    @property
+    def DE(self):
+        with fits.open(self.DE_file) as de_f:
+            hdu = de_f
+        return hdu[0]
+
+    @property
+    def redshift(self):
+        try:
+            z = self.ONED.header["REDSHIFT"]
+        except KeyError as e:
+            print(e)
+            print("Redshift key not found in", self.ONED_file)
+            raise
+        return z
+
+    @property
+    def fado_ver(self):
+        try:
+            ver = self.ONED.header["FADO_VER"]
+        except KeyError as e:
+            print(e)
+            print("version key not found in", self.ONED_file)
+            raise
+        return ver
+
+    @property
+    def ext_law(self):
+        try:
+            law = self.ONED.header["R_LAWOPT"]
+        except KeyError as e:
+            print(e)
+            print("version key not found in", self.ONED_file)
+            raise
+        return law
+
+
+class FadoOneD:
+    """
+    Class to manage the results in the Emission Line
+    """
+    def __init__(self, fado_load=FadoLoad):
+        self.fado_load = fado_load
+        self.header = fado_load.ONED.header
+        self.data = fado_load.ONED.data
+
 
 
 class FadoEL:
-	"""
-	Class to manage the results in the Emission Line file
-	"""
-	def __init__(self, fado_loaded):
-		pass
+    """
+    Class to manage the results in the 1D files
+    """
+    pass
 
-	pass
 
 
 class FadoST:
-	"""
-	Class to manage the results in the statistical file
-	"""
+    """
+    Class to manage the results in the statistical file
+    """
 
-	pass
+    pass
 
-class Fado1D:
-	"""
-	Class to manage the results in the 1D files
-	"""
-	pass
 
 class FadoDE:
-	"""
-	Class to manage the results in the DE files
-	"""
-	pass
+    """
+    Class to manage the results in the DE files
+    """
+    pass
 
-	
 
 class FADO:
     """
@@ -70,7 +118,6 @@ class FADO:
     ST_file = None
     ONED_file = None
     DE_file = None
-
 
     def __init__(self, EL_file, ST_file, ONED_file, DE_file):
 
@@ -85,8 +132,6 @@ class FADO:
         self.hdu_ONED = fits.open(self.ONED_file)
         self.hdu_DE = fits.open(self.DE_file)
 
-
-
     def files(self):
         """
         just print the files being used
@@ -95,7 +140,6 @@ class FADO:
         print(self.ST_file)
         print(self.ONED_file)
         print(self.DE_file)
-
 
     def ELnames(self):
         """
@@ -161,7 +205,6 @@ class FADO:
         print()
         print("Maximum row number=", head["NAXIS2"])
 
-
     def get_spectra(self, row):
         """
         return a numpy array with the spectra of that row
@@ -174,7 +217,6 @@ class FADO:
         spec = data[row-1]
 
         return spec
-
 
     def plot_spec(self, row, wmin=None, wmax=None, **kwargs):
         """
@@ -191,7 +233,6 @@ class FADO:
         spec = spec[(waves>=wmin) & (waves<=wmax)]
         waves = waves[(waves>=wmin) & (waves<=wmax)]
         plt.plot(waves, spec, **kwargs)
-
 
     def plot_obs_spectrum(self, row=None, wmin=None, wmax=None, **kwargs):
         """
@@ -246,7 +287,6 @@ class FADO:
 
         self.plot_obs_spectrum(row=1, wmin=wmin, wmax=wmax, **kwargs)
 
-
     def plot_line_residual(self, linename, window=None, **kwargs):
         """
         as above but after subtracting the model spectrum
@@ -272,7 +312,7 @@ class FADO:
         xmin = int(window[0])-1
         xmax = int(window[1])-1
 
-        values = data[:,xmin:xmax][0]
+        values = data[:, xmin:xmax][0]
 
         results = {'Lambda':values[0],
                    'Amplitude':values[1],
@@ -306,7 +346,6 @@ class FADO:
                    'EW':values[6]}
 
         return errors
-
 
     def plot_fit_to_line(self, linename, window=None, **kwargs):
         """
