@@ -1,5 +1,7 @@
 # pyFADO: A tool to extract info from FADO result files
 
+FADO: http://spectralsynthesis.org/fado.html
+
 ## Basic description 
 
 * ``FadoLoad``: Load the files and stores the most important information

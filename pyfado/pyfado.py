@@ -216,6 +216,36 @@ class EmLines:
 
         return {'names': el_names, 'waves': el_waves, "info": el_info}
 
+    @property
+    def parameters(self):
+        """
+        N_PARAMS: 21 | Number of parameters
+        TOTLINES: 1071 | Total  number   of   parameters    used
+        ISNEBCON: 1 | Nebular        continuum
+        ISNEBCPL: 0 | Planned        for future versions
+        ISLEAKON: 0 | Planned             for future versions
+        SELF_CON: 2 | Self - consistency
+        CONVERGE: 1 | Convergence
+        FLAG_BPT: 0 | BPT flag for [NII] / Ha and [OIII] / Hb(0: Pure
+        SF / 1: SF / 2:Composite / 3: LINER / 4:Seyfert)
+        ELAPSEDT: 106.40000000000 | Elapsed        time in seconds
+        LAMBDA_0: 4020.0000000000 | Normalization        wavelength
+        GALSNORM: 47.580000000000 | Flux        at        the     normalization wavelength
+        FLUXUNIT: 0.0000000000000 | Flux        units in log10
+        LOGBN2HA: -1.9400000000000 | log[NII] / Ha
+        ERRBN2HA: 0.14300000000000E-01 | errorlog[NII] / Ha
+        LOGBO3HB: -1.9400000000000 | log[OIII] / Hb
+        ERRBO3HB: 0.14300000000000E-01 | error        log[OIII] / Hb
+        TELECTRO: 15150.000000000 | Electron       temperature
+        DELECTRO: 171.40000000000 | Electron density
+        GEXTINCT: 0.71940000000000 | Stellar   extinction
+        GEXTBDEV: 0.45930000000000E-07 | Error associated to stellar extinction
+        GNEBULAR: 1.2040000000000 | Nebularextinction
+        GNEBBDEV: 0.0000000000000 | Error associated to nebular extinction
+        """
+        pass
+    
+
     def results(self, line_name, mode="best"):
         """
         returns a dictionary with the results of the fit for a emission line
