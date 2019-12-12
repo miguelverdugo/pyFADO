@@ -18,6 +18,23 @@ Core functionality implemented
     python-box
     matplotlib (for the old ``FADO`` class)
     
+## Installation
+
+    git clone https://github.com/miguelverdugo/pyFADO.git
+
+or
+
+    wget https://github.com/miguelverdugo/pyFADO/archive/master.zip
+    
+and then
+    
+    pip install -e .
+    
+or
+
+    python setup.py install --path <path>
+    
+
 
 
 

@@ -105,7 +105,7 @@ class FadoLoad:
             return norm*fluxunit*unit
 
 
-class FadoOneD:
+class OneD:
     """
     Class to manage the results in the ONED File
     """
@@ -179,7 +179,7 @@ class FadoOneD:
         return sp
 
 
-class FadoEL:
+class EmLines:
     """
         Class to manage the results in the 1D files
     """
@@ -311,7 +311,7 @@ class FadoEL:
 
 
 
-class FadoST:
+class Stats:
     """
     Class to manage the results in the statistical file
     """
