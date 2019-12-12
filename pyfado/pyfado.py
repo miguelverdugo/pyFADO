@@ -1,13 +1,21 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
-from astropy.io import fits
-import matplotlib.pyplot as plt
 from scipy.stats import norm
+import matplotlib.pyplot as plt
+
+from astropy.io import fits
 from astropy.constants import c
 import astropy.wcs as fitswcs
-from box import Box
-from specutils import Spectrum1D
 import astropy.units as u
 from astropy.modeling import models
+from astropy.table import Table
+
+from box import Box
+from specutils import Spectrum1D
+
+
+
 
 class FadoLoad:
     """
@@ -22,6 +30,7 @@ class FadoLoad:
         self.ST_file = ST_file
         self.ONED_file = ONED_file
         self.DE_file = DE_file
+        self.wave_unit = u.AA
 
     @property
     def EL(self):
@@ -77,7 +86,7 @@ class FadoLoad:
             return law
 
     @property
-    def scale(self):
+    def flux_unit(self):
         """
 
         Returns
@@ -85,6 +94,7 @@ class FadoLoad:
         the scale to which the spectra must be multiplied to have correct flux levels
         """
         try:
+            unit = u.Unit("erg / (s cm**2 Angstrom)" )
             norm = self.ONED.header["GALSNORM"]
             fluxunit = 10**self.ONED.header["FLUXUNIT"]
         except KeyError as e:
@@ -92,7 +102,8 @@ class FadoLoad:
             print("keys not found in", self.ONED_file)
             raise
         else:
-            return norm*fluxunit
+            return norm*fluxunit*unit
+
 
 class FadoOneD:
     """
@@ -161,10 +172,9 @@ class FadoOneD:
         if scale is False:
             scale = 1
         else:
-            scale = self.fado_load.scale
+            scale = self.fado_load.flux_unit
 
-        flux_unit = u.Unit("erg / (s cm**2 Angstrom)")
-        flux = self.data[row] * scale * flux_unit
+        flux = self.data[row] * scale
         sp = Spectrum1D(flux=flux, wcs=self.wcs)
         return sp
 
@@ -176,11 +186,13 @@ class FadoEL:
 
     def __init__(self, fado_load=FadoLoad):
         self.fado_load = fado_load
+        self.scale = self.fado_load.flux_unit
         self.header = fado_load.EL.header
         self.data = fado_load.EL.data
         self.names = self.line_dicts["names"]
         self.waves = self.line_dicts["waves"]
         self.info = self.line_dicts["info"]
+
 
     @property
     def line_dicts(self):
@@ -196,15 +208,15 @@ class FadoEL:
         el_info = {}
         for k in el_keys:
             [name, wave, rows] = self.header[k].split()
-            if "[" in name:
-                name = name + wave.split(".")[0]
+
+            name = name + "_" +wave.split(".")[0]
             el_names.append(name)
             el_waves.update({name: float(wave)})
             el_info.update({name: rows})
 
-        return {'names': el_names, 'waves':el_waves, "info": el_info}
+        return {'names': el_names, 'waves': el_waves, "info": el_info}
 
-    def results(self, line_name):
+    def results(self, line_name, mode="best"):
         """
         returns a dictionary with the results of the fit for a emission line
         see self.names for names
@@ -215,17 +227,17 @@ class FadoEL:
         xmin = int(window[0])-1
         xmax = int(window[1])-1
         values = self.data[:, xmin:xmax][0]
-        results = {'lambda': values[0],
-                   'amplitude': values[1],
-                   'sigma': values[2],
-                   'vel': values[3],
-                   'shift': values[4],
-                   'flux': values[5],
-                   'ew': values[6]}
+        results = {'lambda': values[0] * u.AA,
+                   'amplitude': values[1] * self.scale,
+                   'sigma': values[2] * u.AA,
+                   'vel': values[3] * u.km / u.s,
+                   'shift': values[4] * u.AA,
+                   'flux': values[5] * self.scale,
+                   'ew': values[6] * u.AA}
 
         return results
 
-    def errors(self, line_name):
+    def errors(self, line_name, mode="best"):
         """
         returns a dictionary with the results of the fit for a emission line
         see ELnames for names
@@ -235,13 +247,13 @@ class FadoEL:
         xmin = int(window[0]) - 1
         xmax = int(window[1]) - 1
         values = self.data[:, xmin:xmax][1]
-        errors = {'lambda': values[0],
-                  'amplitude': values[1],
-                  'sigma': values[2],
-                  'vel': values[3],
-                  'shift': values[4],
-                  'flux': values[5],
-                  'ew': values[6]}
+        errors = {'lambda': values[0] * u.AA,
+                  'amplitude': values[1] * self.scale,
+                  'sigma': values[2] * u.AA,
+                  'vel': values[3] * u.km / u.s,
+                  'shift': values[4] * u.AA,
+                  'flux': values[5] * self.scale,
+                  'ew': values[6] * u.AA}
 
         return errors
 
@@ -250,29 +262,52 @@ class FadoEL:
         Create a specutils.Spectrum1D for the line
         """
         results = self.results(line_name)
-        center = self.waves[line_name]
         lambda_r = results["lambda"]
         vel = results["vel"]
-        mu = (vel / c.to('km/s').value) * lambda_r + lambda_r
         sigma = results["sigma"]
         amplitude = results["amplitude"]
 
-        flux_unit = u.Unit("erg / (s cm**2 Angstrom)")
-
+        center = (vel / c.to('km/s')) * lambda_r + lambda_r
         spectrum = FadoOneD(self.fado_load)
         wcs = spectrum.wcs
-        scale = self.fado_load.scale
 
-        sp = Spectrum1D(flux=np.zeros(spectrum.data.shape[1]) * flux_unit,
+        length = self.fado_load.ONED.header["NAXIS1"]  # size of the spectrum in pixels
+        sp = Spectrum1D(flux=np.zeros(length) * self.scale,
                         wcs=wcs)
 
-        model = models.Gaussian1D(amplitude=amplitude * scale * flux_unit,
-                                  mean=mu * u.Angstrom,
-                                  stddev=sigma * u.Angstrom)
-        sp = sp + Spectrum1D(spectral_axis=sp.spectral_axis,
-                             flux=model(sp.wavelength))
+        model = models.Gaussian1D(amplitude=amplitude,
+                                  mean=center,
+                                  stddev=sigma)
+        sp = sp + Spectrum1D(spectral_axis=sp.spectral_axis, flux=model(sp.wavelength))
         return sp
 
+    def to_table(self, mode="best"):
+        """
+        Create an astropy table with the results of the emission line fitting
+
+        Parameters
+        ----------
+        mode: best, mean or median
+
+        Returns
+        -------
+        astropy.Table
+        """
+        column_names = ("line_name",
+                        "lambda",  "amplitude", "sigma", "vel", "shift", "flux", "ew",
+                        "lambda_err",  "amplitude_err", "sigma_err", "vel_err", "shift_err", "flux_err", "ew_err")
+        dtypes = ['S11'] + ['f8']*14
+        table = Table(names=column_names, dtype=dtypes)
+
+        for name in self.names:
+            results = self.results(name, mode=mode)
+            errors = self.errors(name, mode=mode)
+            row = [name] + \
+                  [results[key] for key in results.keys()] + \
+                  [errors[key] for key in errors.keys()]
+            table.add_row(row)
+
+        return table
 
 
 

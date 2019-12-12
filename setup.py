@@ -33,7 +33,7 @@ def setup_package():
                           'matplotlib',
                           'python-box',
                           'specutils'],
-        classifiers=["Programming Language :: Python :: 3",
+        classifiers=["Programming Language :: Python :: 3.7",
                         "License :: OSI Approved :: MIT License",
                         "Operating System :: OS Independent",
                         "Intended Audience :: Science/Research",
