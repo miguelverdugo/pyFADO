@@ -244,7 +244,7 @@ class EmLines:
         GNEBBDEV: 0.0000000000000 | Error associated to nebular extinction
         """
         pass
-    
+
 
     def results(self, line_name, mode="best"):
         """

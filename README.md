@@ -4,11 +4,13 @@ FADO: http://spectralsynthesis.org/fado.html
 
 ## Basic description 
 
+The following ``classes`` are implemented
+
 * ``FadoLoad``: Load the files and stores the most important information
  
-* ``FadoOneD`` : Manages the results that are stored as spectra
+* ``OneD`` : Manages the results that are stored as spectra
 
-* ``FadoEL`` : Manages the results for the emission lines
+* ``EmLines`` : Manages the results for the emission lines
 
 Core functionality implemented
 
