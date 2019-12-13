@@ -217,7 +217,7 @@ class EmLines:
         return {'names': el_names, 'waves': el_waves, "info": el_info}
 
     @property
-    def parameters(self):
+    def param(self):
         """
         N_PARAMS: 21 | Number of parameters
         TOTLINES: 1071 | Total  number   of   parameters    used
@@ -226,8 +226,7 @@ class EmLines:
         ISLEAKON: 0 | Planned             for future versions
         SELF_CON: 2 | Self - consistency
         CONVERGE: 1 | Convergence
-        FLAG_BPT: 0 | BPT flag for [NII] / Ha and [OIII] / Hb(0: Pure
-        SF / 1: SF / 2:Composite / 3: LINER / 4:Seyfert)
+        FLAG_BPT: 0 | BPT flag for [NII] / Ha and [OIII] / Hb(0: Pure SF / 1: SF / 2:Composite / 3: LINER / 4:Seyfert)
         ELAPSEDT: 106.40000000000 | Elapsed        time in seconds
         LAMBDA_0: 4020.0000000000 | Normalization        wavelength
         GALSNORM: 47.580000000000 | Flux        at        the     normalization wavelength
@@ -243,47 +242,70 @@ class EmLines:
         GNEBULAR: 1.2040000000000 | Nebularextinction
         GNEBBDEV: 0.0000000000000 | Error associated to nebular extinction
         """
-        pass
-
+        return Box({"flag_bpt": self.header["FLAG_BPT"],
+                    "telectro": self.header["TELECTRO"],
+                    "delectro": self.header["DELECTRO"],
+                    "gextinct": self.header["GEXTINCT"],
+                    "gnebular": self.header["GNEBULAR"]
+                    })
 
     def results(self, line_name, mode="best"):
         """
-        returns a dictionary with the results of the fit for a emission line
-        see self.names for names
+        Returns a dictionary with the results of the fit for a emission line.
+
+        Parameters
+        ----------
+        line_name: str, name of the emission line see self.names for a list of available names
+        mode: str, "best" (default), "mean" or "median"
         """
+        index = 0
+        if mode == "mean":
+            index = index + 7
+        if mode == "median":
+            index = index + 14
 
         rows = self.info
         window = rows[line_name].split('--')
         xmin = int(window[0])-1
         xmax = int(window[1])-1
         values = self.data[:, xmin:xmax][0]
-        results = {'lambda': values[0] * u.AA,
-                   'amplitude': values[1] * self.scale,
-                   'sigma': values[2] * u.AA,
-                   'vel': values[3] * u.km / u.s,
-                   'shift': values[4] * u.AA,
-                   'flux': values[5] * self.scale,
-                   'ew': values[6] * u.AA}
+        results = {'lambda': values[index] * u.AA,
+                   'amplitude': values[index + 1] * self.scale,
+                   'sigma': values[index + 2] * u.AA,
+                   'vel': values[index + 3] * u.km / u.s,
+                   'shift': values[index + 4] * u.AA,
+                   'flux': values[index + 5] * self.scale,
+                   'ew': values[index + 6] * u.AA}
 
         return results
 
     def errors(self, line_name, mode="best"):
         """
-        returns a dictionary with the results of the fit for a emission line
-        see ELnames for names
+        Returns a dictionary with the errors  of the fit for a emission line.
+
+        Parameters
+        ----------
+        line_name: str, name of the emission line see self.names for a list of available names
+        mode: str, "best" (default), "mean" or "median"
         """
+        index = 0
+        if mode == "mean":
+            index = index + 7
+        if mode == "median":
+            index = index + 14
+
         rows = self.info
         window = rows[line_name].split('--')
         xmin = int(window[0]) - 1
         xmax = int(window[1]) - 1
         values = self.data[:, xmin:xmax][1]
-        errors = {'lambda': values[0] * u.AA,
-                  'amplitude': values[1] * self.scale,
-                  'sigma': values[2] * u.AA,
-                  'vel': values[3] * u.km / u.s,
-                  'shift': values[4] * u.AA,
-                  'flux': values[5] * self.scale,
-                  'ew': values[6] * u.AA}
+        errors = {'lambda': values[index] * u.AA,
+                  'amplitude': values[index + 1] * self.scale,
+                  'sigma': values[index + 2] * u.AA,
+                  'vel': values[index + 3] * u.km / u.s,
+                  'shift': values[index + 4] * u.AA,
+                  'flux': values[index + 5] * self.scale,
+                  'ew': values[index + 6] * u.AA}
 
         return errors
 
@@ -298,7 +320,7 @@ class EmLines:
         amplitude = results["amplitude"]
 
         center = (vel / c.to('km/s')) * lambda_r + lambda_r
-        spectrum = FadoOneD(self.fado_load)
+        spectrum = OneD(self.fado_load)
         wcs = spectrum.wcs
 
         length = self.fado_load.ONED.header["NAXIS1"]  # size of the spectrum in pixels

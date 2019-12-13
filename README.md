@@ -2,7 +2,10 @@
 
 FADO: http://spectralsynthesis.org/fado.html
 
+
 ## Basic description 
+
+    WARNING: This work is still experimental and API changes are expected without previous notice
 
 The following ``classes`` are implemented
 
