@@ -15,8 +15,6 @@ from box import Box
 from specutils import Spectrum1D
 
 
-
-
 class FadoLoad:
     """
     This class is meant to load the necessary files and keep them in memory
@@ -24,13 +22,20 @@ class FadoLoad:
 
     It should also read some important information
     """
-    def __init__(self, EL_file, ST_file, ONED_file, DE_file):
+    def __init__(self, name):
 
-        self.EL_file = EL_file
-        self.ST_file = ST_file
-        self.ONED_file = ONED_file
-        self.DE_file = DE_file
+        self.EL_file = name + "_EL.fits"
+        self.ST_file = name + "_ST.fits"
+        self.ONED_file = name + "_1D.fits"
+        self.DE_file = name + "_DE.fits"
+
+        self.redshift = self.ONED.header["REDSHIFT"]
+        self.fade_ver = self.ONED.header["FADO_VER"]
+        self.ext_law = self.ONED.header["R_LAWOPT"]
+
         self.wave_unit = u.AA
+        self.norm = self.ONED.header["GALSNORM"]
+        self.flux_unit = self.norm * 10**self.ONED.header["FLUXUNIT"] * u.Unit("erg / (s cm**2 Angstrom)")
 
     @property
     def EL(self):
@@ -52,58 +57,6 @@ class FadoLoad:
         with fits.open(self.DE_file, lazy_load_hdus=False) as hdu:
             return Box({"header": hdu[0].header, "data": hdu[0].data})
 
-    @property
-    def redshift(self):
-        try:
-            z = self.ONED.header["REDSHIFT"]
-        except KeyError as e:
-            print(e)
-            print("Redshift key not found in", self.ONED_file)
-            raise
-        else:
-            return z
-
-    @property
-    def fado_ver(self):
-        try:
-            ver = self.ONED.header["FADO_VER"]
-        except KeyError as e:
-            print(e)
-            print("version key not found in", self.ONED_file)
-            raise
-        else:
-            return ver
-
-    @property
-    def ext_law(self):
-        try:
-            law = self.ONED.header["R_LAWOPT"]
-        except KeyError as e:
-            print(e)
-            print("version key not found in", self.ONED_file)
-            raise
-        else:
-            return law
-
-    @property
-    def flux_unit(self):
-        """
-
-        Returns
-        -------
-        the scale to which the spectra must be multiplied to have correct flux levels
-        """
-        try:
-            unit = u.Unit("erg / (s cm**2 Angstrom)" )
-            norm = self.ONED.header["GALSNORM"]
-            fluxunit = 10**self.ONED.header["FLUXUNIT"]
-        except KeyError as e:
-            print(e)
-            print("keys not found in", self.ONED_file)
-            raise
-        else:
-            return norm*fluxunit*unit
-
 
 class OneD:
     """
@@ -114,8 +67,6 @@ class OneD:
         self.header = fado_load.ONED.header
         self.data = fado_load.ONED.data
         self.max_rows = self.data.shape[0] + 1 # because python
-
-
 
     @property
     def wcs(self):
