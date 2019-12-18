@@ -431,13 +431,89 @@ class EmLines:
         return table
 
 
-
 class Stats:
     """
     Class to manage the results in the statistical file
     """
+    def __init__(self, fado_load=FadoLoad):
+        self.fado_load = fado_load
+        self.header = fado_load.ST.header
+        self.data = fado_load.ST.data
+        self.scale = self.fado_load.flux_unit
 
-    pass
+    @property
+    def param(self):
+        """
+        LAMBDA_0=            5.710E+03 / Norm. wavelength
+        GALSNORM=            1.175E+01 / Norm. flux
+        FLUXUNIT=           -2.000E+01 / Flux units in log10
+        L_DISMPC=            1.554E+03 / Luminosity dist
+        TELECTRO=            1.000E+04
+        DELECTRO=            5.655E+02
+        GEXTINCT=            1.439E+00
+        GEXTBAVE=            1.439E+00
+        GEXTBDEV=            5.123E-07
+        GNEBULAR=            4.809E-01
+        GNEBBAVE=            4.809E-01
+        GNEBBDEV=            1.724E-08
+        V0SYSGAL=            5.349E+01
+        V0SYSAVE=            5.330E+01
+        V0SYSDEV=            7.105E-15
+        VTSYSGAL=            1.053E+05
+        VTSYSAVE=            1.053E+05
+        VTSYSDEV=            1.503E+02
+        VDSYSGAL=            1.798E+02
+        VDSYSAVE=            1.842E+02
+        VDSYSDEV=            2.842E-14
+        V0NEBGAL=            5.349E+01
+        V0NEBAVE=            5.330E+01
+        V0NEBDEV=            7.105E-15
+        VTNEBGAL=            1.053E+05
+        VTNEBAVE=            1.053E+05
+        VTNEBDEV=            1.503E+02
+        VDNEBGAL=            1.798E+02
+        VDNEBAVE=            1.842E+02
+        VDNEBDEV=            2.842E-14
+
+        Returns
+        -------
+
+        """
+        keys = ["LAMBDA_0",
+                "GALSNORM",
+                "FLUXUNIT",
+                "L_DISMPC",
+                "TELECTRO",
+                "DELECTRO",
+                "GEXTINCT",
+                "GEXTBAVE",
+                "GEXTBDEV",
+                "GNEBULAR",
+                "GNEBBAVE",
+                "GNEBBDEV",
+                "V0SYSGAL",
+                "V0SYSAVE",
+                "V0SYSDEV",
+                "VTSYSGAL",
+                "VTSYSAVE",
+                "VTSYSDEV",
+                "VDSYSGAL",
+                "VDSYSAVE",
+                "VDSYSDEV",
+                "V0NEBGAL",
+                "V0NEBAVE",
+                "V0NEBDEV",
+                "VTNEBGAL",
+                "VTNEBAVE",
+                "VTNEBDEV",
+                "VDNEBGAL",
+                "VDNEBAVE",
+                "VDNEBDEV"]
+
+        params = {k: self.header[k] for k in keys}
+        return Box(params)
+
+
 
 
 class FadoDE:
@@ -449,6 +525,7 @@ class FadoDE:
 
 class FADO:
     """
+    Legacy:
     This class is supposed to load and extract parameters from FADO files
 
     """
