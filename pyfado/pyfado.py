@@ -21,6 +21,26 @@ class FadoLoad:
     to be used in subsequent classes.
 
     It should also read some important information
+
+    Attributes
+    ----------
+    EL_file : str
+            File name containing the emission line results
+    ST_file : str
+            File name containing the statistical results
+    ONED_file : str
+            File name containing the 1D spectra
+    DE_file : str
+            File name containing the differential evolution results
+    redshift : float
+            The object redshift
+    fado_ver : str
+            Fado version
+    ext_law : str
+            Extinction law used
+
+
+
     """
     def __init__(self, name):
 
@@ -30,7 +50,7 @@ class FadoLoad:
         self.DE_file = name + "_DE.fits"
 
         self.redshift = self.ONED.header["REDSHIFT"]
-        self.fade_ver = self.ONED.header["FADO_VER"]
+        self.fado_ver = self.ONED.header["FADO_VER"]
         self.ext_law = self.ONED.header["R_LAWOPT"]
 
         self.wave_unit = u.AA
@@ -39,21 +59,54 @@ class FadoLoad:
 
     @property
     def EL(self):
+        """
+        Property that returns the header and data of EL line results.
+
+        Returns
+        -------
+        self.EL.header
+        self.EL.data
+        """
         with fits.open(self.EL_file, lazy_load_hdus=False) as hdu:
             return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def ST(self):
+        """
+        Property that returns the header and data of ST results.
+
+         Returns
+         -------
+         self.ST.header
+         self.ST.data
+         """
         with fits.open(self.ST_file, lazy_load_hdus=False) as hdu:
             return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def ONED(self):
-        with fits.open(self.ONED_file, lazy_load_hdus=False, memmap=True) as hdu:
+        """
+         Property that returns the header and data of 1D results.
+
+          Returns
+          -------
+          self.ONED.header
+          self.ONED.data
+          """
+
+        with fits.open(self.ONED_file, lazy_load_hdus=False) as hdu:
             return Box({"header": hdu[0].header, "data": hdu[0].data})
 
     @property
     def DE(self):
+        """
+        Property that returns the header and data of DE results.
+
+        Returns
+        -------
+        self.DE.header
+        self.DE.data
+        """
         with fits.open(self.DE_file, lazy_load_hdus=False) as hdu:
             return Box({"header": hdu[0].header, "data": hdu[0].data})
 
@@ -61,15 +114,31 @@ class FadoLoad:
 class OneD:
     """
     Class to manage the results in the ONED File
+
+    Attributes
+    ----------
+    fado_load : FadoLoad object
+    header : dict
+            header of the 1D file
+    data : array-like
+            data of the 1D file
+    max_rows : int
+            maximum number of rows
     """
     def __init__(self, fado_load=FadoLoad):
         self.fado_load = fado_load
         self.header = fado_load.ONED.header
         self.data = fado_load.ONED.data
-        self.max_rows = self.data.shape[0] + 1 # because python
+        self.max_rows = self.data.shape[0]
 
     @property
     def wcs(self):
+        """
+
+        Returns
+        -------
+        WCS
+        """
         wcs = fitswcs.WCS(header={'CDELT1': self.header["CDELT1"],
                         'CRVAL1': self.header["CRVAL1"],
                         'CUNIT1': 'Angstrom',
@@ -77,16 +146,17 @@ class OneD:
                         'CRPIX1': self.header["CRPIX1"]})
         return wcs
 
-    def spectrum(self, row=1, row_name=None, scale=True):
+    def spectrum(self, row=1, scale=True):
         """
         Creates a specutils.Spectrum1D from FADO ONED files.
-        the spectrum can be specified as a row or as a name.
+
+        The spectrum can be specified as a row or as a name.
         Allowed names are the following
 
         1: 'Observed'         spectrum de-redshifted and rebinned'
         2: 'Error'
         3: 'Mask'
-        4: 'Best fit'
+        4: 'Best'
         5: 'Average'            of individual solutions
         6: 'Median'
         7: 'Stdev'
@@ -101,9 +171,12 @@ class OneD:
 
         Parameters
         ----------
-        row: int, the row where the spectra is extracted, default=1 (0 in python notation)
-        row_name: str, name of the row (optional)
-        scale = bool, whether to scale the spectra or not, default True
+        row: str, int
+            Allowed names: 'observed', 'error', 'mask', 'best', 'average', 'median', 'stdev', 'stellar', 'nebular'
+                'agn', 'm/l', 'lsf'
+            The row number where the spectra is extracted, default=1 (0 in python notation)
+
+        scale: bool, whether to scale the spectra or not, default True
 
         Returns
         -------
@@ -113,15 +186,16 @@ class OneD:
                      'best fit': 4, 'average': 5,  'median': 6,
                      'stdev': 7,  'stellar': 8,  'nebular': 9,
                      'm/l': 10,   "lsf": 12}
-        try:
-            row = row_names[row_name.lower()]
-        except (KeyError, AttributeError) as e:
-            print("name not found", e)
-
-        row = row - 1
+        if isinstance(row, str):
+            try:
+                row = row_names[row.lower()]
+            except (KeyError, AttributeError) as e:
+                print("name not found", e)
+        else:
+            row = row - 1
 
         if scale is False:
-            scale = 1
+            scale = 1 * u.dimensionless_unscaled
         else:
             scale = self.fado_load.flux_unit
 
@@ -132,7 +206,22 @@ class OneD:
 
 class EmLines:
     """
-        Class to manage the results in the 1D files
+    Class to manage the results in the 1D files
+
+    Attributes
+    ----------
+    scale : u.Quantity
+        the scaling applied to the emission line flux
+    header : dict
+        the header of the 1D file
+    data : array-like
+        the data of the 1D file
+    names : dict
+        the emission line names
+    waves : dict
+        the center of the emission lines
+    info : dict
+        the pointers where to find the results of the emission line fitting in the data
     """
 
     def __init__(self, fado_load=FadoLoad):
@@ -192,8 +281,19 @@ class EmLines:
         GEXTBDEV: 0.45930000000000E-07 | Error associated to stellar extinction
         GNEBULAR: 1.2040000000000 | Nebularextinction
         GNEBBDEV: 0.0000000000000 | Error associated to nebular extinction
+
+        Returns
+        -------
+        self.lambda_0 : Normalization wavelength
+        self.flat_bpt : The BTP flag = 0 for SF, =2 Composite, =3 Liner, =4 Seyfert
+        self.telectro : The electron temperature
+        self.delectro : The electron density
+        self.gextinct : The stellar extinction
+        self.gnebular : The nebular extinction
+
         """
-        return Box({"flag_bpt": self.header["FLAG_BPT"],
+        return Box({"lambda_0" : self.header["LAMBDA_0"],
+                    "flag_bpt": self.header["FLAG_BPT"],
                     "telectro": self.header["TELECTRO"],
                     "delectro": self.header["DELECTRO"],
                     "gextinct": self.header["GEXTINCT"],
@@ -206,8 +306,10 @@ class EmLines:
 
         Parameters
         ----------
-        line_name: str, name of the emission line see self.names for a list of available names
-        mode: str, "best" (default), "mean" or "median"
+        line_name : str
+            name of the emission line see self.names for a list of available names
+        mode : str,
+            "best" (default), "mean" or "median"
         """
         index = 0
         if mode == "mean":
@@ -236,8 +338,14 @@ class EmLines:
 
         Parameters
         ----------
-        line_name: str, name of the emission line see self.names for a list of available names
-        mode: str, "best" (default), "mean" or "median"
+        line_name: str,
+            name of the emission line see self.names for a list of available names
+        mode: str,
+            "best" (default), "mean" or "median"
+
+        Returns
+        -------
+        dict
         """
         index = 0
         if mode == "mean":
@@ -263,6 +371,15 @@ class EmLines:
     def line_spectra(self, line_name):
         """
         Create a specutils.Spectrum1D for the line
+
+        Parameters
+        ----------
+        line_name : str
+                name of the emission line see self.names for a list of available names
+
+        Returns
+        -------
+        specutils.Spectrum1D
         """
         results = self.results(line_name)
         lambda_r = results["lambda"]
@@ -290,11 +407,12 @@ class EmLines:
 
         Parameters
         ----------
-        mode: best, mean or median
+        mode: str
+            best (default), mean or median
 
         Returns
         -------
-        astropy.Table
+        astropy.table.Table
         """
         column_names = ("line_name",
                         "lambda",  "amplitude", "sigma", "vel", "shift", "flux", "ew",
