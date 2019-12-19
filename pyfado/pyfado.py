@@ -34,6 +34,8 @@ class FadoLoad:
             File name containing the differential evolution results
     redshift : float
             The object redshift
+    rederror : float
+            The error in the object redshift
     fado_ver : str
             Fado version
     ext_law : str
@@ -50,6 +52,7 @@ class FadoLoad:
         self.DE_file = name + "_DE.fits"
 
         self.redshift = self.ONED.header["REDSHIFT"]
+        self.rederror = self.ONED.header["REDERROR"]
         self.fado_ver = self.ONED.header["FADO_VER"]
         self.ext_law = self.ONED.header["R_LAWOPT"]
 
