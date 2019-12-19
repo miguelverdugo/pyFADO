@@ -203,6 +203,98 @@ class OneD:
         sp = Spectrum1D(flux=flux, wcs=self.wcs)
         return sp
 
+    def to_mpdaf(self, row=1, scale=True):
+        """
+        Creates a mpdaf.obj.Spectrum object from FADO 1D files.
+
+        The spectrum can be specified as a row or as a name.
+        Allowed names are the following
+
+        1: 'Observed'         spectrum de-redshifted and rebinned'
+        2: 'Error'
+        3: 'Mask'
+        4: 'Best'
+        5: 'Average'            of individual solutions
+        6: 'Median'
+        7: 'Stdev'
+        8: 'Stellar'            using best fit'
+        9: 'Nebular'            using best fit'
+        10: 'AGN'               using best fit'
+        11: 'M/L'
+        12: 'LSF'  Line spread function
+
+        The best-fits for individual solution can only be specified as a number 13-XX
+        see self.max_rows
+
+        Parameters
+        ----------
+        row: str, int
+            Allowed names: 'observed', 'error', 'mask', 'best', 'average', 'median', 'stdev', 'stellar', 'nebular'
+                'agn', 'm/l', 'lsf'
+            The row number where the spectra is extracted, default=1 (0 in python notation)
+
+        scale: bool, whether to scale the spectra or not, default True
+
+        Returns
+        -------
+        a mpdaf.obj.Spectrum object
+        """
+        try:
+            from mpdaf.obj import Spectrum, WaveCoord
+        except ImportError as e:
+            print(e, "MPDAF not installed, cannot continue")
+            raise
+        sp = self.spectrum(row, scale)
+        wave_coord = WaveCoord(cdelt=self.header["CDELT1"],
+                               crval=self.header["CRVAL1"],
+                               cunit=self.fado_load.wave_unit)
+
+        sp_mpdaf = Spectrum(wave=wave_coord, data=sp.flux)
+
+        return sp_mpdaf
+
+    def to_table(self, row=1, scale=True):
+        """
+        Creates an astropy.table.Table object from FADO 1D files.
+
+        The spectrum can be specified as a row or as a name.
+        Allowed names are the following
+
+        1: 'Observed'         spectrum de-redshifted and rebinned'
+        2: 'Error'
+        3: 'Mask'
+        4: 'Best'
+        5: 'Average'            of individual solutions
+        6: 'Median'
+        7: 'Stdev'
+        8: 'Stellar'            using best fit'
+        9: 'Nebular'            using best fit'
+        10: 'AGN'               using best fit'
+        11: 'M/L'
+        12: 'LSF'  Line spread function
+
+        The best-fits for individual solution can only be specified as a number 13-XX
+        see self.max_rows
+
+        Parameters
+        ----------
+        row: str, int
+            Allowed names: 'observed', 'error', 'mask', 'best', 'average', 'median', 'stdev', 'stellar', 'nebular'
+                'agn', 'm/l', 'lsf'
+            The row number where the spectra is extracted, default=1 (0 in python notation)
+
+        scale: bool, whether to scale the spectra or not, default True
+
+        Returns
+        -------
+        an astropy.table.Table object
+        """
+        sp = self.spectrum(row, scale)
+        table = Table(data=(sp.wavelength, sp.flux),
+                      names=("wavelength", "flux" ))
+
+        return table
+
 
 class EmLines:
     """
