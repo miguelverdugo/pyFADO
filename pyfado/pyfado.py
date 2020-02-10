@@ -42,7 +42,6 @@ class FadoLoad:
             Extinction law used
 
 
-
     """
     def __init__(self, name):
 
@@ -191,7 +190,7 @@ class OneD:
                      'm/l': 10,   "lsf": 12}
         if isinstance(row, str):
             try:
-                row = row_names[row.lower()]
+                row = row_names[row.lower()] - 1
             except (KeyError, AttributeError) as e:
                 print("name not found", e)
         else:
@@ -346,7 +345,7 @@ class EmLines:
 
             name = name + "_" +wave.split(".")[0]
             el_names.append(name)
-            el_waves.update({name: float(wave)})
+            el_waves.update({name: float(wave)*u.AA})
             el_info.update({name: rows})
 
         return {'names': el_names, 'waves': el_waves, "info": el_info}
@@ -415,7 +414,7 @@ class EmLines:
         rows = self.info
         window = rows[line_name].split('--')
         xmin = int(window[0])-1
-        xmax = int(window[1])-1
+        xmax = int(window[1])
         values = self.data[:, xmin:xmax][0]
         results = {'lambda': values[index] * u.AA,
                    'amplitude': values[index + 1] * self.scale,
@@ -451,7 +450,7 @@ class EmLines:
         rows = self.info
         window = rows[line_name].split('--')
         xmin = int(window[0]) - 1
-        xmax = int(window[1]) - 1
+        xmax = int(window[1])
         values = self.data[:, xmin:xmax][1]
         errors = {'lambda': values[index] * u.AA,
                   'amplitude': values[index + 1] * self.scale,
@@ -463,7 +462,7 @@ class EmLines:
 
         return errors
 
-    def line_spectra(self, line_name):
+    def line_spectra(self, line_name, mode="best"):
         """
         Create a specutils.Spectrum1D for the line
 
@@ -472,11 +471,14 @@ class EmLines:
         line_name : str
                 name of the emission line see self.names for a list of available names
 
+        mode : str
+            'best', 'mean' or 'median' of the solutions
+
         Returns
         -------
         specutils.Spectrum1D
         """
-        results = self.results(line_name)
+        results = self.results(line_name, mode=mode)
         lambda_r = results["lambda"]
         vel = results["vel"]
         sigma = results["sigma"]
